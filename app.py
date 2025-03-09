@@ -11,8 +11,14 @@ import queue
 import sys
 import time
 
-# Load Whisper model
+import os
+os.system("pip install whisper")
+import whisper
+
+# Load model
 model = whisper.load_model("base")
+
+
 
 # OpenAI API key (from environment variable)
 key = os.getenv("OPENAI_API_KEY")
