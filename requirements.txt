@@ -1,0 +1,8 @@
+streamlit
+numpy
+openai
+whisper
+vosk
+sounddevice
+wave
+pydub
