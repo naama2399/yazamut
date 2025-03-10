@@ -6,7 +6,7 @@ import os
 st.set_page_config(page_title="AI Doula Personalization Questionnaire")
 
 # Path to the new logo image
-logo_path = "logo.png"  # Updated to use PNG
+logo_path = "new logo.png"  # Updated to use PNG
 
 # Function to encode image as Base64
 def get_image_base64(image_path):
