@@ -6,7 +6,7 @@ import os
 st.set_page_config(page_title="AI Doula Personalization Questionnaire")
 
 # Path to the new logo image
-logo_path = "new logo.png"  # Updated to use PNG
+logo_path = "new logo.png"  # Ensure this file is in the same directory as app.py
 
 # Function to encode image as Base64
 def get_image_base64(image_path):
@@ -47,13 +47,13 @@ def main():
     if "Other" in language:
         st.text_input("Please specify other language")
 
-    tone = st.radio("What tone do you find most comforting?",
-                    ["Warm and gentle", "Encouraging and empowering", "Calm and neutral", "Other"])
-    if tone == "Other":
+    tone = st.multiselect("What tones do you find most comforting?",
+                          ["Warm and gentle", "Encouraging and empowering", "Calm and neutral", "Other"])
+    if "Other" in tone:
         st.text_input("Please specify the tone")
 
-    humor = st.radio("Would you like AI.doula to use humor when appropriate?",
-                     ["Yes, I appreciate light humor", "A little is fine", "No, I prefer a serious tone"])
+    humor = st.multiselect("Would you like AI.doula to use humor when appropriate?",
+                           ["Yes, I appreciate light humor", "A little is fine", "No, I prefer a serious tone"])
 
     # Support Preferences
     st.header("3. Support Preferences")
@@ -63,15 +63,15 @@ def main():
     if "Other" in support_preferences:
         st.text_input("Please specify other support preference")
 
-    real_time_support = st.radio("Would you like AI.doula to provide real-time support during contractions?",
-                                 ["Yes", "No"])
+    real_time_support = st.multiselect("Would you like AI.doula to provide real-time support during contractions?",
+                                       ["Yes", "No"])
     st.text_area("Are there any specific affirmations or comforting phrases you'd like to hear?")
 
     # Sensory Preferences
     st.header("4. Sensory Preferences")
-    sensory_preference = st.radio("Do you prefer AI.doula to guide you with:",
-                                  ["Spoken words only", "Background calming sounds/music"])
-    if sensory_preference == "Background calming sounds/music":
+    sensory_preference = st.multiselect("Do you prefer AI.doula to guide you with:",
+                                        ["Spoken words only", "Background calming sounds/music"])
+    if "Background calming sounds/music" in sensory_preference:
         sound_preference = st.multiselect("If using sounds, what kind do you prefer?", [
             "Nature sounds (rain, ocean, etc.)", "Soft instrumental music", "No sound, just voice", "Other"])
         if "Other" in sound_preference:
@@ -79,19 +79,19 @@ def main():
 
     # Personalization Based on Past Experiences
     st.header("5. Personalization Based on Past Experiences")
-    first_labor = st.radio("Is this your first labor?", ["Yes", "No, I've given birth before"])
-    if first_labor == "No, I've given birth before":
+    first_labor = st.multiselect("Is this your first labor?", ["Yes", "No, I've given birth before"])
+    if "No, I've given birth before" in first_labor:
         st.text_area("If you've given birth before, is there anything you found helpful last time?")
     st.text_area("Is there anything you'd like to avoid based on past experiences?")
     st.text_area("Do you have any fears or concerns about labor that AI.doula should be aware of?")
 
     # Partner & Support System
     st.header("6. Partner & Support System")
-    include_partner = st.radio(
+    include_partner = st.multiselect(
         "Would you like AI.doula to offer words of encouragement for your birth partner/support person as well?",
         ["Yes", "No"])
-    if include_partner == "Yes":
-        partner_support = st.multiselect("If yes, how would you like AI.doula to involve them?", [
+    if "Yes" in include_partner:
+        partner_support = st.multiselect("How would you like AI.doula to involve your partner?", [
             "Reminders for massage and physical support", "Encouraging words for them", "Other"])
         if "Other" in partner_support:
             st.text_input("Please specify other support preference for partner")
