@@ -42,7 +42,8 @@ def main():
 
     # Language & Communication Style
     st.header("2. Language & Communication Style")
-    language = st.multiselect("What language(s) would you like AI.doula to use?", ["English", "Spanish", "Other"])  # ✅ Multiple answers allowed
+    st.write("*(You can select multiple options where applicable)*")
+    language = st.multiselect("What language(s) would you like AI.doula to use? (Multiple selections allowed)", ["English", "Spanish", "Other"])
     if "Other" in language:
         st.text_input("Please specify other language")
 
@@ -56,13 +57,17 @@ def main():
 
     # Support Preferences
     st.header("3. Support Preferences")
-    support_preferences = st.multiselect("How do you prefer to receive support?", [
-        "Short affirmations and calming words", 
-        "Guided breathing exercises", 
-        "Mindfulness and meditation guidance",
-        "Step-by-step explanations", 
-        "Encouraging messages based on progress", 
-        "Other"])  # ✅ Multiple answers allowed
+    support_preferences = st.multiselect(
+        "How do you prefer to receive support? (Multiple selections allowed)",
+        [
+            "Short affirmations and calming words",
+            "Guided breathing exercises",
+            "Mindfulness and meditation guidance",
+            "Step-by-step explanations",
+            "Encouraging messages based on progress",
+            "Other",
+        ],
+    )
     if "Other" in support_preferences:
         st.text_input("Please specify other support preference")
 
@@ -75,11 +80,15 @@ def main():
     sensory_preference = st.radio("Do you prefer AI.doula to guide you with:",
                                   ["Spoken words only", "Background calming sounds/music"])
     if sensory_preference == "Background calming sounds/music":
-        sound_preference = st.multiselect("If using sounds, what kind do you prefer?", [
-            "Nature sounds (rain, ocean, etc.)", 
-            "Soft instrumental music", 
-            "No sound, just voice", 
-            "Other"])  # ✅ Multiple answers allowed
+        sound_preference = st.multiselect(
+            "If using sounds, what kind do you prefer? (Multiple selections allowed)", 
+            [
+                "Nature sounds (rain, ocean, etc.)",
+                "Soft instrumental music",
+                "No sound, just voice",
+                "Other",
+            ],
+        )
         if "Other" in sound_preference:
             st.text_input("Please specify other sound preference")
 
@@ -97,10 +106,14 @@ def main():
         "Would you like AI.doula to offer words of encouragement for your birth partner/support person as well?",
         ["Yes", "No"])
     if include_partner == "Yes":
-        partner_support = st.multiselect("If yes, how would you like AI.doula to involve them?", [
-            "Reminders for massage and physical support", 
-            "Encouraging words for them", 
-            "Other"])  # ✅ Multiple answers allowed
+        partner_support = st.multiselect(
+            "If yes, how would you like AI.doula to involve them? (Multiple selections allowed)", 
+            [
+                "Reminders for massage and physical support",
+                "Encouraging words for them",
+                "Other",
+            ],
+        )
         if "Other" in partner_support:
             st.text_input("Please specify other support preference for partner")
 
