@@ -1,51 +1,40 @@
-import streamlit as st
 import numpy as np
 import wave
 import whisper
 import openai
+import IPython.display as ipd
+import sys
 import os
 import vosk
 import json
 import sounddevice as sd
 import queue
-import sys
-import time
 
-import os
-os.system("pip install whisper")
-import whisper
+# Load Whisper model
+from IPython.core.display_functions import display
 
-# Load model
 model = whisper.load_model("base")
-
-
 
 # OpenAI API key (from environment variable)
 key = os.getenv("OPENAI_API_KEY")
+
 if not key:
-    st.error("❌ OPENAI_API_KEY environment variable is missing!")
-    st.stop()
-
-# Streamlit UI
-st.image("logo.jpg", width=200)  # Ensure your logo file is correctly placed
-st.title("🍼 Live Doula AI - Birth Assistant")
-st.write("A real-time AI assistant to provide *calming support* during childbirth.")
-
-# Ensure session state exists
-if "wake_word_detected" not in st.session_state:
-    st.session_state.wake_word_detected = False
+    raise ValueError("❌ OPENAI_API_KEY environment variable is missing!")
 
 
 def detect_wake_word_vosk():
-    """Continuously listens for 'Hey Doula' and resets session after response."""
-    model_path = "vosk-model-small-en-us-0.15"
+    """Uses Vosk to detect 'Hey' wake word."""
+
+    model_path = os.path.join(os.path.dirname(__file__), "vosk-model-small-en-us-0.15")
 
     if not os.path.exists(model_path):
-        st.error(f"❌ Vosk model not found at {model_path}. Download from: https://alphacephei.com/vosk/models")
-        return False
+        raise FileNotFoundError(
+            f"❌ Vosk model not found at {model_path}. Download from: https://alphacephei.com/vosk/models")
 
+    # Load Vosk Model
     model = vosk.Model(model_path)
     recognizer = vosk.KaldiRecognizer(model, 16000)
+
     q = queue.Queue()
 
     def callback(indata, frames, time, status):
@@ -54,27 +43,27 @@ def detect_wake_word_vosk():
             print(status, file=sys.stderr)
         q.put(bytes(indata))
 
-    while not st.session_state.wake_word_detected:
-        st.write("🎤 Listening for 'Hey Doula'...")
-        with sd.InputStream(samplerate=16000, channels=1, dtype="int16", callback=callback):
-            while True:
-                data = q.get()
-                if recognizer.AcceptWaveform(data):
-                    result = json.loads(recognizer.Result())
-                    text = result.get("text", "").lower()
+    print("🎤 Listening for 'Hey'...")
 
-                    if "hey" in text or "hey doula" in text:
-                        st.session_state.wake_word_detected = True
-                        st.success("✅ 'Hey Doula' detected! Now recording request...")
-                        return True
+    with sd.InputStream(samplerate=16000, channels=1, dtype="int16", callback=callback):
+        while True:
+            data = q.get()
+            if recognizer.AcceptWaveform(data):
+                result = json.loads(recognizer.Result())
+                text = result.get("text", "").lower()
+                print(f"📝 Detected Speech: {text}")
+
+                if "hey" in text:
+                    print("✅ 'Doula' detected!")
+                    return True
 
 
 def record_audio_live(filename="user_input.wav", samplerate=44100, duration=10):
-    """Records audio for 10 seconds after 'Hey Doula' is detected."""
-    if not st.session_state.wake_word_detected:
-        return None
+    """Records audio after wake word detection."""
+    if detect_wake_word_vosk():
+        print(f"✅ 'Hey Doula' detected! Recording for {duration} seconds...")
 
-    st.write("🎤 Recording request for 10 seconds...")
+    print("🎤 Recording ongoing...")
     recorded_audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype=np.int16)
     sd.wait()
 
@@ -84,44 +73,45 @@ def record_audio_live(filename="user_input.wav", samplerate=44100, duration=10):
         wavefile.setframerate(samplerate)
         wavefile.writeframes(recorded_audio.tobytes())
 
+    print(f"✅ Recording saved as {filename}")
     return filename
 
 
 def speech_to_text(audio_path):
     """Transcribes speech using Whisper."""
-    result = model.transcribe(audio_path)
-    return result["text"].lower()
+    absolute_path = os.path.abspath(audio_path)
+
+    if not os.path.exists(absolute_path):
+        raise FileNotFoundError(f"❌ Audio file not found at: {absolute_path}")
+
+    print(f"🔍 Transcribing file from: {absolute_path}")
+    result = model.transcribe(absolute_path)
+    print(f"📝 Transcription: {result['text']}")
+
+    return result["text"]
 
 
-def get_ai_response(user_text, heart_rate=90, stress_level=5, contractions=3):
-    """Generates AI response or plays relaxing music if requested."""
+def get_ai_response(user_text, key, heart_rate=90, stress_level=5, contractions=3):
+    """Generates AI response based on user input and vitals."""
     client = openai.OpenAI(api_key=key)
 
-    if "relax music" in user_text or "i want some relax music" in user_text or "play relaxing music" in user_text:
-        music_file = os.path.abspath("relaxing_music.mp3")
-
-        if os.path.exists(music_file):
-            st.success("🎶 Playing relaxing music...")
-            st.audio(music_file)
-            return None
-        else:
-            st.error("❌ Relaxing music file not found! Please check the file location.")
-            return None
-
     system_prompt = """
-    You are a *calming birth assistant AI* helping a woman in labor.
-    You analyze her *heart rate, stress levels, and contractions* to provide personalized *soothing and mindful* responses.
+    You are a calming birth assistant AI designed to provide emotional and mental support during childbirth.
 
-    - Keep responses concise, calming, and clear (~20 sec of speech).
-    - If heart rate > 120 or stress level > 8, focus on deep breathing.
-    - If contractions are strong, remind her to relax and breathe.
-    - If distress is too high, suggest calling the nursing staff.
+    - Your focus is on *calming techniques, relaxation, and mindfulness*.
+    - *Do NOT provide medical advice or diagnose conditions*.
+    - *DO NOT mention labor status, medical risks, or suggest medical actions*.
+    - *Keep responses concise and within 30 seconds of speech (~100 tokens).*
+    - If a user expresses stress, anxiety, or discomfort, respond with *soothing breathing exercises, positive affirmations, and relaxation techniques*.
+    - Encourage the user to *focus on deep breaths, softening their body, and maintaining a calm state of mind*.
+    - If a user asks medical-related questions (e.g., "Is my baby okay?"), gently *redirect them to a healthcare provider* and reinforce *calmness and reassurance*.
     """
+
 
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user",
-         "content": f"My heart rate is {heart_rate} BPM, stress is {stress_level}/10, and I have {contractions} contractions per 10 min. Also, {user_text}."}
+         "content": f"My heart rate is {heart_rate} BPM, my stress level is {stress_level}/10, and I have {contractions} contractions per 10 minutes. Also, {user_text}."}
     ]
 
     try:
@@ -129,64 +119,72 @@ def get_ai_response(user_text, heart_rate=90, stress_level=5, contractions=3):
             model="gpt-4o",
             messages=messages,
             temperature=0.7,
+            max_tokens=100  # Limits response length (~30 sec speech)
         )
-        return response.choices[0].message.content
 
+        ai_text = response.choices[0].message.content
+        print(f"🤖 AI Response: {ai_text}")
+
+        return ai_text
+
+    except openai.AuthenticationError:
+        print("❌ API Authentication failed. Check your API key.")
+    except openai.RateLimitError:
+        print("❌ Rate limit exceeded. Try again later.")
+    except openai.APIConnectionError:
+        print("❌ Connection error. Check your internet connection.")
     except Exception as e:
-        st.error(f"❌ Error: {e}")
-        return None
+        print(f"❌ Unexpected error: {e}")
 
 
 def text_to_speech(text, output_file="response.mp3"):
-    """Converts AI-generated text into speech only if text is valid."""
-    if not text or text.strip() == "":
-        return
-
+    """Converts AI-generated text into speech and plays it."""
     client = openai.OpenAI(api_key=key)
 
-    try:
-        response = client.audio.speech.create(
-            model="tts-1",
-            voice="shimmer",
-            input=text,
-        )
+    response = client.audio.speech.create(
+        model="tts-1",
+        voice="shimmer",
+        input=text,
+    )
 
-        with open(output_file, "wb") as f:
-            f.write(response.content)
+    with open(output_file, "wb") as f:
+        f.write(response.content)
 
-        st.success("🔊 AI Speech generated!")
-        st.audio(output_file)
-
-    except openai.OpenAIError as e:
-        st.error(f"❌ Text-to-Speech Error: {e}")
-
+    print(f"🔊 AI Speech saved as {output_file}")
+    display(ipd.Audio(output_file, autoplay=True))
 
 def play_relaxing_music(music_file="relaxing_music.mp3"):
     """Plays relaxing background music."""
     if os.path.exists(music_file):
-        st.success("🎶 Playing relaxing music...")
-        st.audio(music_file)
+        print(f"🎶 Playing relaxing music: {music_file}")
+        display(ipd.Audio(music_file, autoplay=True))
     else:
-        st.error("❌ Relaxing music file not found!")
+        print("❌ Relaxing music file not found!")
 
 
-# ✅ Main logic: Automatically loops back to listening after each response
-while True:
-    detect_wake_word_vosk()
+def live_doula():
+    """Runs the full pipeline: listen, record, transcribe, respond, and speak."""
+    print("🎬 Starting Doula AI process...")
 
-    if st.session_state.wake_word_detected:
-        audio_file = record_audio_live()
+    audio_file = record_audio_live()
+    print("📂 Recorded file:", audio_file)
 
-        if audio_file:
-            transcribed_text = speech_to_text(audio_file)
+    transcribed_text = speech_to_text(audio_file).lower()  # Convert to lowercase
+    print("📝 Transcription completed:", transcribed_text)
 
-            if "relax music" in transcribed_text or "i want some relax music" in transcribed_text:
-                play_relaxing_music()
-            else:
-                ai_response = get_ai_response(transcribed_text, heart_rate=130, stress_level=9, contractions=5)
-                text_to_speech(ai_response)
+    # 🔹 Check if the user wants relaxing music
+    if "relax music" in transcribed_text or "i want some relax music" in transcribed_text:
+        print("🎶 Playing relaxing music instead of AI response...")
+        play_relaxing_music()  # Play music
+        return  # Skip AI response
 
-        # ⏳ Wait 5 minutes before resetting the session
-        st.session_state.wake_word_detected = False
-        st.success("⏳ Waiting 5 minutes before listening again...")
-        time.sleep(300)  # 5-minute wait
+    # 🤖 Continue AI conversation if no music is requested
+    ai_response = get_ai_response(transcribed_text, key, heart_rate=130, stress_level=9, contractions=5)
+    print("✅ AI Response received.")
+
+    text_to_speech(ai_response)
+    print("🔊 AI Response spoken.")
+
+
+# Start the Doula system
+live_doula()
